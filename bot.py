@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-TOKEN = "MTQ4MTkwNzc1NzAzNTU1NjkwNg.Gz36Lm.mn3buwDjx4tUyshtHnOl3khtKg2-K4patZB4Mc"
+TOKEN = "MTQ4MTkwNzc1NzAzNTU1NjkwNg.GsdXsC.bbyvz892mScOaDuksHsXTVWLIfdVsnKoHMQymU"
 POLL_CHANNEL_ID = 1479982795651551447
 EVENT_ROLE_NAME = "Guild Wars"
 POLL_DAY = 0
