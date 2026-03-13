@@ -11,7 +11,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 # ============================================================
 
 TOKEN = “MTQ4MTkwNzc1NzAzNTU1NjkwNg.G-0NMk.CymmoM46XNYNDiCZ1sISzWUmpllJALejA6M048”
-POLL_CHANNEL_ID = 1462232492454056151        # Right click channel → Copy ID
+POLL_CHANNEL_ID = 1479982795651551447        # Right click channel → Copy ID
 EVENT_ROLE_NAME = “Guild Wars”   # Must match role name in your server exactly
 POLL_DAY = 0       # 0=Monday 1=Tuesday 2=Wednesday 3=Thursday 4=Friday 5=Saturday 6=Sunday
 POLL_HOUR = 12     # 24hr UTC time (12 = noon UTC)
