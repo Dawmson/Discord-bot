@@ -5,7 +5,7 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import os
-TOKEN = os.environ.get("MTQ4MTkwNzc1NzAzNTU1NjkwNg.GsdXsC.bbyvz892mScOaDuksHsXTVWLIfdVsnKoHMQymU")
+TOKEN = os.environ.get("DISCORD_TOKEN")
 POLL_CHANNEL_ID = 1479982795651551447
 EVENT_ROLE_NAME = "Guild Wars"
 POLL_DAY = 0
