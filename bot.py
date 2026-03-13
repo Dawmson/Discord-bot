@@ -3,14 +3,14 @@ from discord.ext import commands, tasks
 from datetime import datetime, timedelta
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
-
 import os
+
 TOKEN = os.environ.get("DISCORD_TOKEN")
 POLL_CHANNEL_ID = 1479982795651551447
 EVENT_ROLE_NAME = "Guild Wars"
-POLL_DAY = 0
-POLL_HOUR = 12
-POLL_DURATION_DAYS = 7
+POLL_DAY = 0        # 0=Monday poll opens every week
+POLL_HOUR = 12      # noon UTC
+POLL_DURATION_DAYS = 4  # Monday to Friday (4 days)
 EVENT_QUESTION = "Guild War - Are you IN or OUT this week?"
 
 class Handler(BaseHTTPRequestHandler):
@@ -43,11 +43,13 @@ active_poll = {
 IN_EMOJI = "\u2705"
 OUT_EMOJI = "\u274c"
 
+
 @bot.event
 async def on_ready():
     print("Bot is online as " + str(bot.user))
     weekly_poll.start()
     check_poll_ended.start()
+
 
 @tasks.loop(hours=1)
 async def weekly_poll():
@@ -55,12 +57,14 @@ async def weekly_poll():
     if now.weekday() == POLL_DAY and now.hour == POLL_HOUR:
         await post_poll()
 
-@tasks.loop(minutes=30)
+
+@tasks.loop(minutes=10)
 async def check_poll_ended():
     if not active_poll["message_id"] or not active_poll["end_time"]:
         return
     if datetime.utcnow() >= active_poll["end_time"]:
         await end_poll()
+
 
 async def post_poll():
     channel = bot.get_channel(POLL_CHANNEL_ID)
@@ -68,12 +72,25 @@ async def post_poll():
         print("Channel not found!")
         return
 
+    guild = channel.guild
+    role = discord.utils.get(guild.roles, name=EVENT_ROLE_NAME)
+
+    # Reset all roles when new poll starts
+    if role:
+        removed = 0
+        for member in guild.members:
+            if role in member.roles:
+                await member.remove_roles(role)
+                removed += 1
+        print("Reset roles from " + str(removed) + " members")
+
     end_time = datetime.utcnow() + timedelta(days=POLL_DURATION_DAYS)
     end_str = end_time.strftime("%A, %B %d at %I:%M %p UTC")
 
     desc = (
-        "\u2705 **IN** - You will get access to the event channel!\n"
-        "\u274c **OUT** - No worries, see you next time!\n\n"
+        "\u2705 **IN** - Vote IN to join the Guild War!\n"
+        "\u274c **OUT** - Sit this one out\n\n"
+        "Roles will be assigned on **Friday** when poll closes!\n"
         "Poll closes: **" + end_str + "**"
     )
 
@@ -82,7 +99,7 @@ async def post_poll():
         description=desc,
         color=0x7289DA
     )
-    embed.set_footer(text="Roles reset automatically when event ends.")
+    embed.set_footer(text="Roles assigned Friday. Resets every Monday.")
 
     msg = await channel.send(embed=embed)
     await msg.add_reaction(IN_EMOJI)
@@ -91,7 +108,8 @@ async def post_poll():
     active_poll["message_id"] = msg.id
     active_poll["end_time"] = end_time
     active_poll["voters_in"] = set()
-    print("Poll posted! Ends: " + end_str)
+    print("Poll posted! Closes: " + end_str)
+
 
 async def end_poll():
     channel = bot.get_channel(POLL_CHANNEL_ID)
@@ -105,23 +123,30 @@ async def end_poll():
         print("Role not found: " + EVENT_ROLE_NAME)
         return
 
-    removed = 0
-    for member in guild.members:
-        if role in member.roles:
-            await member.remove_roles(role)
-            removed += 1
+    # Assign roles to everyone who voted IN
+    assigned = 0
+    for user_id in active_poll["voters_in"]:
+        member = guild.get_member(user_id)
+        if member and role not in member.roles:
+            await member.add_roles(role)
+            assigned += 1
+            print("Gave role to " + member.name)
 
     active_poll["message_id"] = None
     active_poll["end_time"] = None
     active_poll["voters_in"] = set()
 
     embed = discord.Embed(
-        title="Event Poll Closed!",
-        description="All event roles have been reset. See you next week!",
-        color=0xFF6B6B
+        title="\u2694\ufe0f Guild War Starting!",
+        description=(
+            "Poll is closed! **" + str(assigned) + " members** have been given the Guild Wars role!\n\n"
+            "Roles will reset next Monday when the new poll opens. Good luck! \U0001f3c6"
+        ),
+        color=0xFFD700
     )
     await channel.send(embed=embed)
-    print("Poll ended. Removed role from " + str(removed) + " members.")
+    print("Poll ended. Assigned role to " + str(assigned) + " members.")
+
 
 @bot.event
 async def on_reaction_add(reaction, user):
@@ -130,23 +155,14 @@ async def on_reaction_add(reaction, user):
     if reaction.message.id != active_poll["message_id"]:
         return
 
-    guild = reaction.message.guild
-    role = discord.utils.get(guild.roles, name=EVENT_ROLE_NAME)
-    member = guild.get_member(user.id)
-
-    if not role or not member:
-        return
-
     if str(reaction.emoji) == IN_EMOJI:
-        await member.add_roles(role)
         active_poll["voters_in"].add(user.id)
-        print("Gave role to " + user.name)
+        print(user.name + " voted IN")
 
     elif str(reaction.emoji) == OUT_EMOJI:
-        if role in member.roles:
-            await member.remove_roles(role)
         active_poll["voters_in"].discard(user.id)
-        print("Removed role from " + user.name)
+        print(user.name + " voted OUT")
+
 
 @bot.event
 async def on_reaction_remove(reaction, user):
@@ -155,17 +171,10 @@ async def on_reaction_remove(reaction, user):
     if reaction.message.id != active_poll["message_id"]:
         return
 
-    guild = reaction.message.guild
-    role = discord.utils.get(guild.roles, name=EVENT_ROLE_NAME)
-    member = guild.get_member(user.id)
-
-    if not role or not member:
-        return
-
     if str(reaction.emoji) == IN_EMOJI:
-        if role in member.roles:
-            await member.remove_roles(role)
         active_poll["voters_in"].discard(user.id)
+        print(user.name + " removed IN vote")
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -173,11 +182,13 @@ async def startpoll(ctx):
     await post_poll()
     await ctx.message.delete()
 
+
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def endpoll(ctx):
     await end_poll()
     await ctx.message.delete()
+
 
 @bot.command()
 @commands.has_permissions(administrator=True)
@@ -193,5 +204,6 @@ async def pollstatus(ctx):
         delete_after=15
     )
     await ctx.message.delete()
+
 
 bot.run(TOKEN)
