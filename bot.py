@@ -10,7 +10,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ============================================================
 
-TOKEN = 'MTQ4MTkwNzc1NzAzNTU1NjkwNg.G-0NMk.CymmoM46XNYNDiCZ1sISzWUmpllJALejA6M048'
+TOKEN = ‘MTQ4MTkwNzc1NzAzNTU1NjkwNg.G-0NMk.CymmoM46XNYNDiCZ1sISzWUmpllJALejA6M048’
 POLL_CHANNEL_ID = 1479982795651551447
 EVENT_ROLE_NAME = ‘Guild Wars’
 POLL_DAY = 0
