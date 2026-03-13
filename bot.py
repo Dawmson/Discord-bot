@@ -13,7 +13,7 @@ POLL_DAY = 0
 POLL_HOUR = 12
 POLL_DURATION_DAYS = 4
 EVENT_QUESTION = "Guild War - Are you IN or OUT this week?"
-ANNOUNCEMENT_DELETE_AFTER = 300
+ANNOUNCEMENT_DELETE_SECONDS = 300
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -47,6 +47,15 @@ IN_EMOJI = "\u2705"
 OUT_EMOJI = "\u274c"
 
 
+async def delete_after(message, seconds):
+    await asyncio.sleep(seconds)
+    try:
+        await message.delete()
+        print("Message deleted after " + str(seconds) + " seconds")
+    except Exception as e:
+        print("Could not delete message: " + str(e))
+
+
 @bot.event
 async def on_ready():
     print("Bot is online as " + str(bot.user))
@@ -78,7 +87,6 @@ async def post_poll():
     guild = channel.guild
     role = discord.utils.get(guild.roles, name=EVENT_ROLE_NAME)
 
-    # Reset all roles when new poll starts
     if role:
         removed = 0
         for member in guild.members:
@@ -104,11 +112,13 @@ async def post_poll():
     )
     embed.set_footer(text="Roles assigned Friday. Resets every Monday.")
 
-    # Send @everyone then the embed
-    await channel.send("@everyone \u2694\ufe0f **Guild War poll is now open!** Vote below!")
+    ping = await channel.send("@everyone \u2694\ufe0f **Guild War poll is now open!** Vote below!")
     msg = await channel.send(embed=embed)
     await msg.add_reaction(IN_EMOJI)
     await msg.add_reaction(OUT_EMOJI)
+
+    # Delete the ping message after 5 mins
+    bot.loop.create_task(delete_after(ping, ANNOUNCEMENT_DELETE_SECONDS))
 
     active_poll["message_id"] = msg.id
     active_poll["message_obj"] = msg
@@ -129,7 +139,6 @@ async def end_poll():
         print("Role not found: " + EVENT_ROLE_NAME)
         return
 
-    # Assign roles to everyone who voted IN
     assigned = 0
     for user_id in active_poll["voters_in"]:
         member = guild.get_member(user_id)
@@ -138,7 +147,7 @@ async def end_poll():
             assigned += 1
             print("Gave role to " + member.name)
 
-    # Delete the original poll message
+    # Delete the poll message
     try:
         if active_poll["message_obj"]:
             await active_poll["message_obj"].delete()
@@ -151,7 +160,6 @@ async def end_poll():
     active_poll["end_time"] = None
     active_poll["voters_in"] = set()
 
-    # Send @everyone closing announcement
     embed = discord.Embed(
         title="\u2694\ufe0f Guild War Starting!",
         description=(
@@ -161,17 +169,15 @@ async def end_poll():
         ),
         color=0xFFD700
     )
-    await channel.send("@everyone \u2694\ufe0f **Guild War is starting!** Roles have been assigned!")
-    announcement = await channel.send(embed=embed)
-    print("Poll ended. Assigned role to " + str(assigned) + " members.")
 
-    # Delete announcement after 5 minutes
-    await asyncio.sleep(ANNOUNCEMENT_DELETE_AFTER)
-    try:
-        await announcement.delete()
-        print("Announcement deleted")
-    except Exception as e:
-        print("Could not delete announcement: " + str(e))
+    ping = await channel.send("@everyone \u2694\ufe0f **Guild War is starting!** Roles have been assigned!")
+    announcement = await channel.send(embed=embed)
+
+    # Delete both messages after 5 mins using background task
+    bot.loop.create_task(delete_after(ping, ANNOUNCEMENT_DELETE_SECONDS))
+    bot.loop.create_task(delete_after(announcement, ANNOUNCEMENT_DELETE_SECONDS))
+
+    print("Poll ended. Assigned role to " + str(assigned) + " members.")
 
 
 @bot.event
