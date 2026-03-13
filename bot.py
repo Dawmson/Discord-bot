@@ -4,14 +4,16 @@ from datetime import datetime, timedelta
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import os
+import asyncio
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
 POLL_CHANNEL_ID = 1479982795651551447
 EVENT_ROLE_NAME = "Guild Wars"
-POLL_DAY = 0        # 0=Monday poll opens every week
-POLL_HOUR = 12      # noon UTC
-POLL_DURATION_DAYS = 4  # Monday to Friday (4 days)
+POLL_DAY = 0
+POLL_HOUR = 12
+POLL_DURATION_DAYS = 4
 EVENT_QUESTION = "Guild War - Are you IN or OUT this week?"
+ANNOUNCEMENT_DELETE_AFTER = 300
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -36,6 +38,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 active_poll = {
     "message_id": None,
+    "message_obj": None,
     "end_time": None,
     "voters_in": set()
 }
@@ -101,11 +104,14 @@ async def post_poll():
     )
     embed.set_footer(text="Roles assigned Friday. Resets every Monday.")
 
+    # Send @everyone then the embed
+    await channel.send("@everyone \u2694\ufe0f **Guild War poll is now open!** Vote below!")
     msg = await channel.send(embed=embed)
     await msg.add_reaction(IN_EMOJI)
     await msg.add_reaction(OUT_EMOJI)
 
     active_poll["message_id"] = msg.id
+    active_poll["message_obj"] = msg
     active_poll["end_time"] = end_time
     active_poll["voters_in"] = set()
     print("Poll posted! Closes: " + end_str)
@@ -132,20 +138,40 @@ async def end_poll():
             assigned += 1
             print("Gave role to " + member.name)
 
+    # Delete the original poll message
+    try:
+        if active_poll["message_obj"]:
+            await active_poll["message_obj"].delete()
+            print("Poll message deleted")
+    except Exception as e:
+        print("Could not delete poll message: " + str(e))
+
     active_poll["message_id"] = None
+    active_poll["message_obj"] = None
     active_poll["end_time"] = None
     active_poll["voters_in"] = set()
 
+    # Send @everyone closing announcement
     embed = discord.Embed(
         title="\u2694\ufe0f Guild War Starting!",
         description=(
             "Poll is closed! **" + str(assigned) + " members** have been given the Guild Wars role!\n\n"
-            "Roles will reset next Monday when the new poll opens. Good luck! \U0001f3c6"
+            "Roles will reset next Monday when the new poll opens. Good luck! \U0001f3c6\n\n"
+            "_This message will disappear in 5 minutes_"
         ),
         color=0xFFD700
     )
-    await channel.send(embed=embed)
+    await channel.send("@everyone \u2694\ufe0f **Guild War is starting!** Roles have been assigned!")
+    announcement = await channel.send(embed=embed)
     print("Poll ended. Assigned role to " + str(assigned) + " members.")
+
+    # Delete announcement after 5 minutes
+    await asyncio.sleep(ANNOUNCEMENT_DELETE_AFTER)
+    try:
+        await announcement.delete()
+        print("Announcement deleted")
+    except Exception as e:
+        print("Could not delete announcement: " + str(e))
 
 
 @bot.event
