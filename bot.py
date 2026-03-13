@@ -16,7 +16,7 @@ EVENT_ROLE_NAME = 'Guild Wars'   # Must match role name in your server exactly
 POLL_DAY = 0       # 0=Monday 1=Tuesday 2=Wednesday 3=Thursday 4=Friday 5=Saturday 6=Sunday
 POLL_HOUR = 12     # 24hr UTC time (12 = noon UTC)
 POLL_DURATION_DAYS = 7
-EVENT_QUESTION = “🎉 Weekly Event — Are you IN or OUT this week?”
+EVENT_QUESTION = 'Guild War — Are you IN or OUT this week?'
 
 # ============================================================
 
